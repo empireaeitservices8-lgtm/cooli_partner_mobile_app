@@ -1,0 +1,12 @@
+export 'auth_repository.dart';
+export 'job_repository.dart';
+export 'ride_repository.dart';
+export 'porter_repository.dart';
+export 'truck_repository.dart';
+export 'bid_repository.dart';
+export 'earnings_repository.dart';
+export 'vehicle_repository.dart';
+export 'document_repository.dart';
+export 'notification_repository.dart';
+export 'profile_repository.dart';
+export 'support_repository.dart';

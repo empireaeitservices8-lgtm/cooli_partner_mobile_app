@@ -1,0 +1,11 @@
+export 'app_providers.dart';
+export 'auth_provider.dart';
+export 'partner_provider.dart';
+export 'job_provider.dart';
+export 'ride_provider.dart';
+export 'porter_provider.dart';
+export 'truck_provider.dart';
+export 'earnings_provider.dart';
+export 'vehicle_provider.dart';
+export 'document_provider.dart';
+export 'notification_provider.dart';
