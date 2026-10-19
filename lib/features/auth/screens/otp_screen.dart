@@ -72,56 +72,55 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       _errorMessage = null;
     });
 
-    final success =
-        await ref.read(authNotifierProvider.notifier).verifyOtp(_enteredOtp);
-    if (success && mounted) {
-      // Check if phone number is registered
-      final isRegistered = await ref
-          .read(authNotifierProvider.notifier)
-          .isPhoneRegistered(widget.phoneNumber);
-
-      if (isRegistered) {
-        // Registered partner -> Go to Role/User Selection page
-        final partner = await ref
-            .read(authNotifierProvider.notifier)
-            .getPartnerByPhone(widget.phoneNumber);
-        if (partner != null && mounted) {
-          await ref
-              .read(partnerNotifierProvider.notifier)
-              .switchPartner(partner);
-          ref
-              .read(jobsNotifierProvider.notifier)
-              .setFilter(partner.role.associatedJobType);
-        }
-
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('OTP Verified! Welcome back, select your category.'),
-            backgroundColor: AppColors.success,
-            duration: Duration(seconds: 1),
-          ),
+    final authRes = await ref.read(authNotifierProvider.notifier).verifyOtp(
+          _enteredOtp,
+          phone: widget.phoneNumber,
+          otpType: 'login',
         );
-        context.go('/select-role');
-      } else {
+
+    if (authRes != null && mounted) {
+      // Check if user is new or already registered
+      if (authRes.isNewUser || authRes.redirectTo == 'registration') {
         // Not registered -> Go to Register page
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content:
-                Text('OTP Verified! Please complete registration to continue.'),
+            content: Text(
+                'New user detected! Please complete registration to continue.'),
             backgroundColor: AppColors.primaryBlue,
             duration: Duration(seconds: 2),
           ),
         );
         context.go('/register');
+      } else {
+        // Already registered user -> Sync active partner and go directly to home
+        final partner = ref.read(authNotifierProvider).partner;
+        if (partner != null) {
+          final activePartner = partner.copyWith(status: PartnerStatus.active);
+          await ref
+              .read(partnerNotifierProvider.notifier)
+              .switchPartner(activePartner);
+          ref
+              .read(jobsNotifierProvider.notifier)
+              .setFilter(partner.role.associatedJobType);
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('OTP Verified! Welcome back to COOLI Partner.'),
+            backgroundColor: AppColors.success,
+            duration: Duration(seconds: 2),
+          ),
+        );
+        context.go('/home');
       }
     } else if (mounted) {
       setState(() {
         _errorMessage = ref.read(authNotifierProvider).errorMessage ??
-            'Invalid OTP. Please enter 123456';
+            'Invalid OTP. Please enter the valid verification code.';
       });
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

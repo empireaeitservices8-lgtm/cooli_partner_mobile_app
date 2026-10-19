@@ -57,9 +57,50 @@ class _VerificationStatusScreenState extends ConsumerState<VerificationStatusScr
 
   Future<void> _checkStatus() async {
     setState(() => _isChecking = true);
+
+    // 1. Try real backend check-approval-status API first
+    final approvalRes =
+        await ref.read(authNotifierProvider.notifier).checkApprovalStatus();
+
+    if (approvalRes != null && mounted) {
+      setState(() => _isChecking = false);
+      if (approvalRes.isApproved) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('🎉 Verification completed! Your account is approved.'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+        _loadPartner();
+        context.go('/home');
+        return;
+      } else if (approvalRes.isRejected) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Registration rejected by admin. Please contact support or upload valid documents.'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+        return;
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Verification in progress. Compliance team is currently reviewing your documents.'),
+            backgroundColor: AppColors.primaryBlue,
+          ),
+        );
+        return;
+      }
+    }
+
+    // 2. Fallback to local repository check
     await Future.delayed(const Duration(milliseconds: 700));
     final phone = _partner?.phone ?? widget.phoneNumber ?? '';
-    final isDone = await ref.read(authNotifierProvider.notifier).isPhoneVerificationCompleted(phone);
+    final isDone = await ref
+        .read(authNotifierProvider.notifier)
+        .isPhoneVerificationCompleted(phone);
     if (!mounted) return;
     setState(() => _isChecking = false);
 
@@ -71,15 +112,18 @@ class _VerificationStatusScreenState extends ConsumerState<VerificationStatusScr
         ),
       );
       _loadPartner();
+      context.go('/home');
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Verification in progress. Compliance team is currently reviewing your documents.'),
+          content: Text(
+              'Verification in progress. Compliance team is currently reviewing your documents.'),
           backgroundColor: AppColors.primaryBlue,
         ),
       );
     }
   }
+
 
   Future<void> _completeVerificationNow() async {
     setState(() => _isCompleting = true);

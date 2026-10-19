@@ -61,6 +61,44 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             right: 0,
             child: CityIllustrationBackground(height: 90),
           ),
+          Positioned(
+            top: 12,
+            right: 16,
+            child: InkWell(
+              onTap: () => context.push('/api-hub'),
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F172A),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.primaryYellow.withOpacity(0.5)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.terminal_rounded, size: 14, color: AppColors.primaryYellow),
+                    const SizedBox(width: 5),
+                    const Text(
+                      'API Hub & Logs',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
           SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
             child: Column(

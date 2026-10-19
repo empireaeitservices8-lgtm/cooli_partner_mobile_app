@@ -12,6 +12,7 @@ import '../../../core/widgets/cooli_card.dart';
 import '../../../core/widgets/cooli_text_fields.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../../models/models.dart';
+import '../../../models/api/api_models.dart';
 import '../../../providers/providers.dart';
 
 class PartnerRegistrationScreen extends ConsumerStatefulWidget {
@@ -42,7 +43,10 @@ class _PartnerRegistrationScreenState
   final _pincodeController = TextEditingController();
 
   // Step 4: Vehicle
-  String _vehicleType = 'Cab / Taxi (Dzire)';
+  String _vehicleType = 'Car';
+  List<RideVehicleType> _rideVehicleTypes = RideVehicleType.dummyVehicleTypes;
+  bool _isLoadingVehicleTypes = false;
+  bool _hasLoadedVehicleTypes = false;
   final _vehicleRegController = TextEditingController();
   final _vehicleModelController = TextEditingController();
 
@@ -76,6 +80,36 @@ class _PartnerRegistrationScreenState
     _bankNameController.text = 'HDFC Bank Ltd.';
     _accountNumberController.text = '50100452189245';
     _ifscController.text = 'HDFC0001248';
+  }
+
+  Future<void> _loadRideVehicleTypes({bool force = false}) async {
+    if (_hasLoadedVehicleTypes && !force) return;
+    setState(() => _isLoadingVehicleTypes = true);
+    try {
+      final types =
+          await ref.read(driverApiRepositoryProvider).getRideVehicleTypes();
+      if (mounted && types.isNotEmpty) {
+        setState(() {
+          _rideVehicleTypes = types;
+          _hasLoadedVehicleTypes = true;
+          if (_selectedRole == PartnerRole.rider) {
+            _vehicleType = types.any((t) => t.name == 'Car')
+                ? 'Car'
+                : types.first.name;
+          }
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _rideVehicleTypes = RideVehicleType.dummyVehicleTypes;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingVehicleTypes = false);
+      }
+    }
   }
 
   @override
@@ -244,7 +278,11 @@ class _PartnerRegistrationScreenState
                 _selectedRole = role;
                 switch (role) {
                   case PartnerRole.rider:
-                    _vehicleType = 'Cab / Taxi (Dzire) / Auto';
+                    _vehicleType = _rideVehicleTypes.any((t) => t.name == 'Car')
+                        ? 'Car'
+                        : (_rideVehicleTypes.isNotEmpty
+                            ? _rideVehicleTypes.first.name
+                            : 'Car');
                     _vehicleModelController.text = 'Maruti Dzire Tour';
                     break;
                   case PartnerRole.porter:
@@ -447,7 +485,256 @@ class _PartnerRegistrationScreenState
     );
   }
 
+  void _onSelectVehicleType(RideVehicleType type) {
+    setState(() {
+      _vehicleType = type.name;
+      final lower = type.name.toLowerCase();
+      if (lower.contains('bike')) {
+        _vehicleModelController.text = 'Hero Splendor / Honda Activa';
+      } else if (lower.contains('auto')) {
+        _vehicleModelController.text = 'Bajaj RE Auto Rickshaw';
+      } else if (lower.contains('bmw')) {
+        _vehicleModelController.text = 'BMW 5 Series VIP';
+      } else if (lower.contains('premium')) {
+        _vehicleModelController.text = 'Toyota Innova Crysta';
+      } else if (lower.contains('car') || lower.contains('dzire')) {
+        _vehicleModelController.text = 'Maruti Dzire Tour';
+      }
+    });
+  }
+
+  Future<void> _showVehicleTypeBottomSheet() async {
+    // Call the ride vehicle-types API if not loaded yet
+    if (!_hasLoadedVehicleTypes) {
+      await _loadRideVehicleTypes();
+    }
+
+    if (!mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 44,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Select Vehicle Type',
+                        style: AppTextStyles.titleMedium.copyWith(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 18,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryBlue.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              'GET api/ride/vehicle-types/',
+                              style: AppTextStyles.caption.copyWith(
+                                color: AppColors.primaryBlue,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 10.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.refresh_rounded,
+                        color: AppColors.primaryBlue),
+                    tooltip: 'Refresh from API',
+                    onPressed: () async {
+                      await _loadRideVehicleTypes(force: true);
+                      (ctx as Element).markNeedsBuild();
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              ..._rideVehicleTypes.map((type) {
+                final isSelected = _vehicleType
+                        .toLowerCase()
+                        .contains(type.name.toLowerCase()) ||
+                    _vehicleType == type.name;
+
+                IconData iconData;
+                final lower = type.name.toLowerCase();
+                if (lower.contains('bike')) {
+                  iconData = Icons.two_wheeler_rounded;
+                } else if (lower.contains('auto')) {
+                  iconData = Icons.electric_rickshaw_rounded;
+                } else if (lower.contains('bmw')) {
+                  iconData = Icons.auto_awesome_rounded;
+                } else if (lower.contains('premium')) {
+                  iconData = Icons.car_rental_rounded;
+                } else {
+                  iconData = Icons.directions_car_rounded;
+                }
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? AppColors.primaryBlue.withOpacity(0.08)
+                        : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isSelected
+                          ? AppColors.primaryBlue
+                          : AppColors.cardBorder,
+                      width: isSelected ? 2 : 1,
+                    ),
+                  ),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 4),
+                    leading: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppColors.primaryBlue
+                            : const Color(0xFFE2E8F0),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        iconData,
+                        color: isSelected ? Colors.white : AppColors.textPrimary,
+                        size: 22,
+                      ),
+                    ),
+                    title: Row(
+                      children: [
+                        Text(
+                          type.name,
+                          style: AppTextStyles.body.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: isSelected
+                                ? AppColors.primaryBlue
+                                : AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'ID ${type.id}',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black54,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    subtitle: Text(
+                      type.description,
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                    trailing: isSelected
+                        ? const Icon(Icons.check_circle_rounded,
+                            color: AppColors.primaryBlue)
+                        : const Icon(Icons.arrow_forward_ios_rounded,
+                            size: 14, color: AppColors.textTertiary),
+                    onTap: () {
+                      _onSelectVehicleType(type);
+                      Navigator.pop(ctx);
+                    },
+                  ),
+                );
+              }),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildStep4Vehicle() {
+    // Load vehicle types when viewing the vehicle category step if not loaded yet
+    if (!_hasLoadedVehicleTypes && !_isLoadingVehicleTypes) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_hasLoadedVehicleTypes && !_isLoadingVehicleTypes) {
+          _loadRideVehicleTypes();
+        }
+      });
+    }
+
+    // Current display title for the selected vehicle
+    final displayCategory = _vehicleType.isNotEmpty
+        ? (_vehicleType.toLowerCase().contains('cab') ||
+                _vehicleType.toLowerCase().contains('taxi')
+            ? _vehicleType
+            : 'Cab / Taxi ($_vehicleType)')
+        : 'Cab / Taxi (Dzire)';
+
+    final matchedType = _rideVehicleTypes
+        .cast<RideVehicleType?>()
+        .firstWhere((vt) =>
+            vt != null &&
+            (_vehicleType.toLowerCase().contains(vt.name.toLowerCase()) ||
+                _vehicleType == vt.name),
+            orElse: () => null);
+
+    IconData displayIcon = Icons.directions_car_rounded;
+    final lower = _vehicleType.toLowerCase();
+    if (lower.contains('bike')) {
+      displayIcon = Icons.two_wheeler_rounded;
+    } else if (lower.contains('auto')) {
+      displayIcon = Icons.electric_rickshaw_rounded;
+    } else if (lower.contains('bmw')) {
+      displayIcon = Icons.auto_awesome_rounded;
+    } else if (lower.contains('premium')) {
+      displayIcon = Icons.car_rental_rounded;
+    } else if (lower.contains('mini truck') || lower.contains('ace')) {
+      displayIcon = Icons.airport_shuttle_rounded;
+    } else if (lower.contains('truck') || lower.contains('16t')) {
+      displayIcon = Icons.local_shipping_rounded;
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -458,48 +745,177 @@ class _PartnerRegistrationScreenState
         Text('Add your initial vehicle for rides, goods delivery, or freight.',
             style: AppTextStyles.bodySmall),
         const SizedBox(height: 20),
-        Text('Vehicle Category',
-            style:
-                AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w600)),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Vehicle Category',
+                style: AppTextStyles.bodyMedium
+                    .copyWith(fontWeight: FontWeight.w600)),
+            if (_isLoadingVehicleTypes)
+              const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+          ],
+        ),
         const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.cardBorder, width: 1.2),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              isExpanded: true,
-              value: _vehicleType,
-              items: [
-                'Commercial Fleet (5+ Vehicles)',
-                'Mini Truck (Tata Ace)',
-                'Pickup Truck (Bolero)',
-                'Heavy Truck (Ashok Leyland 16T)',
-                'Cab / Taxi (Dzire)',
-                'Two-Wheeler (Bike / Scooter)',
-                'Auto (3-Wheeler Cargo)',
-                'Heavy Commercial Truck',
-                'Sedan / Hatchback (Ride)',
-              ].map((String value) {
-                return DropdownMenuItem<String>(
-                  value: value,
-                  child: Text(value, style: AppTextStyles.body),
-                );
-              }).toList(),
-              onChanged: (val) {
-                if (val != null) setState(() => _vehicleType = val);
-              },
+
+        // ── Clickable Box that calls API & opens vehicle types picker ──
+        InkWell(
+          onTap: _showVehicleTypeBottomSheet,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.cardBorder, width: 1.2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.02),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryBlue.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(displayIcon,
+                      size: 20, color: AppColors.primaryBlue),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        displayCategory,
+                        style: AppTextStyles.body.copyWith(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                        ),
+                      ),
+                      Text(
+                        matchedType?.description ??
+                            'Tap to call api/ride/vehicle-types/ & choose',
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.textTertiary,
+                          fontSize: 11.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_isLoadingVehicleTypes)
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else
+                  const Icon(
+                    Icons.arrow_drop_down_rounded,
+                    color: AppColors.textSecondary,
+                    size: 28,
+                  ),
+              ],
             ),
           ),
         ),
+
+        const SizedBox(height: 14),
+
+        // ── Direct Quick-Select Chips from api/ride/vehicle-types/ ──
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Select Ride Type (from API)',
+              style: AppTextStyles.caption.copyWith(
+                fontWeight: FontWeight.w700,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            InkWell(
+              onTap: _showVehicleTypeBottomSheet,
+              child: Text(
+                'View All (${_rideVehicleTypes.length})',
+                style: AppTextStyles.caption.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primaryBlue,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: _rideVehicleTypes.map((vt) {
+              final isSelected = _vehicleType
+                      .toLowerCase()
+                      .contains(vt.name.toLowerCase()) ||
+                  _vehicleType == vt.name;
+
+              IconData chipIcon;
+              final l = vt.name.toLowerCase();
+              if (l.contains('bike')) {
+                chipIcon = Icons.two_wheeler_rounded;
+              } else if (l.contains('auto')) {
+                chipIcon = Icons.electric_rickshaw_rounded;
+              } else if (l.contains('bmw')) {
+                chipIcon = Icons.auto_awesome_rounded;
+              } else if (l.contains('premium')) {
+                chipIcon = Icons.car_rental_rounded;
+              } else {
+                chipIcon = Icons.directions_car_rounded;
+              }
+
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ActionChip(
+                  avatar: Icon(
+                    chipIcon,
+                    size: 16,
+                    color: isSelected ? Colors.white : AppColors.primaryBlue,
+                  ),
+                  label: Text(vt.name),
+                  backgroundColor:
+                      isSelected ? AppColors.primaryBlue : Colors.white,
+                  labelStyle: TextStyle(
+                    color: isSelected ? Colors.white : AppColors.textPrimary,
+                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                    fontSize: 12.5,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(
+                      color: isSelected
+                          ? AppColors.primaryBlue
+                          : AppColors.cardBorder,
+                      width: 1.2,
+                    ),
+                  ),
+                  onPressed: () => _onSelectVehicleType(vt),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+
         const SizedBox(height: 16),
         CooliTextField(
           controller: _vehicleModelController,
           label: 'Make & Model',
-          hintText: 'e.g. Tata Ace Gold Plus',
+          hintText: 'e.g. Maruti Dzire Tour',
           prefixIcon: const Icon(Icons.local_shipping_outlined),
         ),
         const SizedBox(height: 16),
@@ -777,8 +1193,7 @@ class _PartnerRegistrationScreenState
 
   Future<void> _onNext() async {
     if (_currentStep == 6) {
-      final phone = ref.read(authNotifierProvider).partner?.phone ?? _phoneController.text.trim();
-      context.go('/verification-status', extra: phone);
+      context.go('/home');
       return;
     }
 
@@ -788,6 +1203,9 @@ class _PartnerRegistrationScreenState
       setState(() {
         _currentStep++;
       });
+      if (_currentStep == 3 && !_hasLoadedVehicleTypes) {
+        _loadRideVehicleTypes();
+      }
       return;
     }
 
@@ -798,6 +1216,11 @@ class _PartnerRegistrationScreenState
           email: _emailController.text.trim(),
           city: _cityController.text.trim(),
           role: _selectedRole,
+          drivingLicence: _dlNumberController.text.trim(),
+          idProof: _rcNumberController.text.trim(),
+          bankAccountNumber: _accountNumberController.text.trim(),
+          bankName: _bankNameController.text.trim(),
+          ifscCode: _ifscController.text.trim(),
         );
     if (!mounted) return;
     setState(() => _isSubmitting = false);
@@ -820,11 +1243,20 @@ class _PartnerRegistrationScreenState
       );
       return;
     }
-    ref.read(partnerNotifierProvider.notifier).switchPartner(registeredPartner);
+    final activePartner = registeredPartner.copyWith(status: PartnerStatus.active);
+    await ref.read(partnerNotifierProvider.notifier).switchPartner(activePartner);
     ref
         .read(jobsNotifierProvider.notifier)
         .setFilter(_selectedRole.associatedJobType);
-    setState(() => _currentStep = 6);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('🎉 Registration successful! Welcome to COOLI Partner.'),
+        backgroundColor: AppColors.success,
+        duration: Duration(seconds: 2),
+      ),
+    );
+    context.go('/home');
   }
 
   bool _validateCurrentStep() {

@@ -10,6 +10,7 @@ class AppColors {
   static const Color secondaryPurple = Color(0xFF6366F1); // Indigo / Purple
   static const Color accentOrange = Color(0xFFF59E0B); // Amber / Orange Accent
   static const Color accentOrangeDark = Color(0xFFD97706);
+  static const Color primaryYellow = Color(0xFFF59E0B); // Amber Accent Yellow
 
   // Backgrounds & Surfaces
   static const Color background = Color(0xFFF5F8FF); // Very light blue / lavender

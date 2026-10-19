@@ -91,9 +91,9 @@ class MockAuthRepository implements AuthRepository {
     if (otp == '123456' || otp.length == 6) {
       final existing = _findPartner(phoneNumber);
       if (existing != null) {
-        _partner = existing;
+        _partner = existing.copyWith(status: PartnerStatus.active);
       } else {
-        _partner = MockData.currentPartner.copyWith(phone: phoneNumber);
+        _partner = MockData.currentPartner.copyWith(phone: phoneNumber, status: PartnerStatus.active);
       }
       _isAuthenticated = true;
       return _partner;
@@ -126,7 +126,7 @@ class MockAuthRepository implements AuthRepository {
       totalRatings: 0,
       completedJobs: 0,
       isOnline: false,
-      status: PartnerStatus.pendingVerification,
+      status: PartnerStatus.active,
       role: role,
       workPreference: switch (role) {
         PartnerRole.rider => WorkPreference.rides,

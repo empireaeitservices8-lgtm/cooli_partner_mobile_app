@@ -1,6 +1,18 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/network/dio_client.dart';
+import '../repositories/api/driver_api_repository.dart';
 import '../repositories/repositories.dart';
 import '../services/location_service.dart';
+
+// Dio & API Network Providers
+final dioClientProvider = Provider<DioClient>((ref) {
+  return DioClient();
+});
+
+final driverApiRepositoryProvider = Provider<DriverApiRepository>((ref) {
+  final dioClient = ref.watch(dioClientProvider);
+  return DriverApiRepositoryImpl(client: dioClient);
+});
 
 // Repository Providers
 final authRepositoryProvider = Provider<AuthRepository>((ref) {

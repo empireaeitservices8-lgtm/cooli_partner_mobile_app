@@ -12,6 +12,7 @@ import '../../features/auth/screens/verification_status_screen.dart';
 // Home & Shell
 import '../../features/home/screens/main_shell_screen.dart';
 import '../../features/notifications/screens/notifications_screen.dart';
+import '../../features/api_hub/screens/api_hub_screen.dart';
 
 // Jobs & Ride
 import '../../features/jobs/screens/incoming_job_request_screen.dart';
@@ -80,8 +81,19 @@ final GoRouter appRouter = GoRouter(
       },
     ),
     GoRoute(
+      path: '/pending',
+      builder: (context, state) {
+        final phone = state.extra as String?;
+        return VerificationStatusScreen(phoneNumber: phone);
+      },
+    ),
+    GoRoute(
       path: '/select-role',
       builder: (context, state) => const RoleSelectionScreen(),
+    ),
+    GoRoute(
+      path: '/api-hub',
+      builder: (context, state) => const ApiHubScreen(),
     ),
 
     // Main App Shell with Bottom Navigation (Tabs 0 to 4)

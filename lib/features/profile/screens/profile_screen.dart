@@ -143,6 +143,14 @@ class ProfileScreen extends ConsumerWidget {
               child: Column(
                 children: [
                   _buildMenuItem(
+                    icon: Icons.terminal_rounded,
+                    title: 'API Live Hub & Network Logger',
+                    subtitle: 'Test Dio endpoints, view models & console logs',
+                    iconColor: AppColors.primaryBlue,
+                    onTap: () => context.push('/api-hub'),
+                  ),
+                  const Divider(indent: 56),
+                  _buildMenuItem(
                     icon: Icons.lock_outline_rounded,
                     title: 'Privacy & Security Policy',
                     onTap: () {},
